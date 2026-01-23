@@ -123,3 +123,70 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Markdown prose styles */
+.prose {
+  @apply text-foreground;
+  max-width: 65ch;
+  color: var(--foreground);
+  line-height: 1.75;
+}
+
+.prose h1 {
+  @apply text-3xl font-bold;
+  color: var(--foreground);
+}
+
+.prose h2 {
+  @apply text-2xl font-bold;
+  color: var(--foreground);
+}
+
+.prose h3 {
+  @apply text-xl font-bold;
+  color: var(--foreground);
+}
+
+.prose p {
+  @apply my-3;
+}
+
+.prose ul {
+  @apply list-disc pl-6 my-3;
+}
+
+.prose ol {
+  @apply list-decimal pl-6 my-3;
+}
+
+.prose li {
+  @apply my-1;
+}
+
+.prose strong {
+  @apply font-bold;
+}
+
+.prose em {
+  @apply italic;
+}
+
+.prose code {
+  @apply bg-muted px-1 py-0.5 rounded text-sm font-mono;
+}
+
+.prose a {
+  @apply text-primary underline;
+}
+
+.prose hr {
+  @apply border-border my-6;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-muted-foreground pl-4 italic;
+}
+
+.prose span[style*="background: lime"] {
+  @apply bg-green-400 text-black px-1 rounded;
+}

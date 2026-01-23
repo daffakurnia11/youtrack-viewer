@@ -34,7 +34,7 @@ export function IssueCard({ issue }: IssueCardProps) {
   // Get values based on issue type
   const isAJTI = issue.idReadable.startsWith("AJTI")
   const storyPoint = getStoryPointValue(isAJTI ? 9 : 6)
-  const state = getFieldValue(1)
+  const state = getFieldValue(isAJTI ? 2 : 1)
   const subTribe = getFieldValue(isAJTI ? 11 : 12)
 
   // Extract state name

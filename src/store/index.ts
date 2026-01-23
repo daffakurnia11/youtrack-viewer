@@ -7,6 +7,9 @@ interface AppStore {
   // Auth & Settings
   authToken: string | null
   queryUsername: string
+  tokenCreatedAt: string | null
+  lastUsedAt: string | null
+  activityLog: string[]
 
   // Board Data
   sprints: Sprint[]
@@ -37,7 +40,11 @@ interface AppStore {
   // Actions - Auth & Settings
   setAuthToken: (token: string) => void
   clearAuthToken: () => void
+  setTokenCreatedAt: (date: string | null) => void
   setQueryUsername: (username: string) => void
+  updateLastUsed: () => void
+  checkSessionTimeout: () => boolean
+  isSessionExpired: () => boolean
 
   // Actions - Board Data
   setSprints: (sprints: Sprint[]) => void
@@ -76,6 +83,9 @@ export const useAppStore = create<AppStore>()(
       // Initial State - Auth & Settings
       authToken: null,
       queryUsername: "",
+      tokenCreatedAt: null,
+      lastUsedAt: null,
+      activityLog: [],
 
       // Initial State - Board Data
       sprints: [],
@@ -104,36 +114,78 @@ export const useAppStore = create<AppStore>()(
       issuesError: null,
 
       // Actions - Auth & Settings
-      setAuthToken: (token) => set({ authToken: token }),
-      clearAuthToken: () => set({ authToken: null }),
+      setAuthToken: (token) => set({
+        authToken: token,
+        tokenCreatedAt: new Date().toISOString(),
+        lastUsedAt: new Date().toISOString(),
+        activityLog: [new Date().toISOString()],
+      }),
+      clearAuthToken: () => set({
+        authToken: null,
+        tokenCreatedAt: null,
+        lastUsedAt: null,
+        activityLog: [],
+      }),
+      setTokenCreatedAt: (date) => set({ tokenCreatedAt: date }),
       setQueryUsername: (username) => set({ queryUsername: username }),
+      updateLastUsed: () => set((state) => {
+        const now = new Date().toISOString();
+        return {
+          lastUsedAt: now,
+          activityLog: [now, ...state.activityLog.slice(0, 9)], // Keep last 10 activities
+        };
+      }),
+      checkSessionTimeout: (): boolean => {
+        const state = useAppStore.getState();
+        const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+        if (!state.lastUsedAt) return false;
+
+        const lastUsed = new Date(state.lastUsedAt).getTime();
+        const now = Date.now();
+        const timeSinceLastUse = now - lastUsed;
+
+        return timeSinceLastUse > SESSION_TIMEOUT_MS;
+      },
+      isSessionExpired: (): boolean => {
+        const state = useAppStore.getState();
+        const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+        if (!state.lastUsedAt) return false;
+
+        const lastUsed = new Date(state.lastUsedAt).getTime();
+        const now = Date.now();
+        const timeSinceLastUse = now - lastUsed;
+
+        return timeSinceLastUse > SESSION_TIMEOUT_MS;
+      },
 
       // Actions - Board Data
-      setSprints: (sprints) => set({ sprints }),
-      setStates: (states) => set({ states }),
-      setSubtribes: (subtribes) => set({ subtribes }),
-      setCurrentSprint: (sprint) => set({ currentSprint: sprint }),
+      setSprints: (sprints: Sprint[]) => set({ sprints }),
+      setStates: (states: State[]) => set({ states }),
+      setSubtribes: (subtribes: State[]) => set({ subtribes }),
+      setCurrentSprint: (sprint: { id: string } | null) => set({ currentSprint: sprint }),
 
       // Actions - Issues Data
-      setIssues: (issues) => set({ issues }),
+      setIssues: (issues: Issue[]) => set({ issues }),
       clearIssues: () => set({ issues: [] }),
 
       // Actions - Filters
-      setSelectedSprint: (sprint) => set({ selectedSprint: sprint }),
-      setSelectedSprintData: (sprint) => set({ selectedSprintData: sprint }),
-      setSelectedStateIds: (stateIds) => set({ selectedStateIds: stateIds }),
-      setSorts: (sorts) => set({ sorts }),
+      setSelectedSprint: (sprint: string | null) => set({ selectedSprint: sprint }),
+      setSelectedSprintData: (sprint: Sprint | null) => set({ selectedSprintData: sprint }),
+      setSelectedStateIds: (stateIds: string[]) => set({ selectedStateIds: stateIds }),
+      setSorts: (sorts: SortOption[]) => set({ sorts }),
 
       // Actions - UI State
-      setShowSettingsModal: (show) => set({ showSettingsModal: show }),
+      setShowSettingsModal: (show: boolean) => set({ showSettingsModal: show }),
 
       // Actions - Loading States
-      setLoadingBoard: (loading) => set({ loadingBoard: loading }),
-      setLoadingIssues: (loading) => set({ loadingIssues: loading }),
+      setLoadingBoard: (loading: boolean) => set({ loadingBoard: loading }),
+      setLoadingIssues: (loading: boolean) => set({ loadingIssues: loading }),
 
       // Actions - Error States
-      setBoardError: (error) => set({ boardError: error }),
-      setIssuesError: (error) => set({ issuesError: error }),
+      setBoardError: (error: string | null) => set({ boardError: error }),
+      setIssuesError: (error: string | null) => set({ issuesError: error }),
 
       // Actions - Reset
       resetFilters: () => set({
@@ -150,6 +202,9 @@ export const useAppStore = create<AppStore>()(
       partialize: (state) => ({
         authToken: state.authToken,
         queryUsername: state.queryUsername,
+        tokenCreatedAt: state.tokenCreatedAt,
+        lastUsedAt: state.lastUsedAt,
+        activityLog: state.activityLog,
         sorts: state.sorts,
       }),
     }

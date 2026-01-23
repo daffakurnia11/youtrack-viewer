@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { IssueList } from "@/components/IssueList";
 import { LoadingState } from "@/components/LoadingState";
 import { QueryDisplay } from "@/components/QueryDisplay";
+import { SessionTimeout } from "@/components/SessionTimeout";
 import { SettingsModal } from "@/components/SettingsModal";
 import { SprintMarkdownGenerator } from "@/components/SprintMarkdownGenerator";
 import { SprintSelector } from "@/components/SprintSelector";
@@ -21,7 +22,7 @@ import {
   buildStateFilter,
 } from "@/lib/youTrackQuery";
 import { useAppStore } from "@/store";
-import { SortOption } from "@/types";
+import { Issue, SortOption,Sprint } from "@/types";
 
 const BOARD_NAME = "Board Employer Kanban";
 
@@ -63,7 +64,7 @@ export default function Home() {
   useEffect(() => {
     if (!currentSprint || sprints.length === 0) return;
 
-    const currentSprintData = sprints.find((s) => s.id === currentSprint.id);
+    const currentSprintData = sprints.find((s: Sprint) => s.id === currentSprint.id);
     if (currentSprintData && !selectedSprint) {
       setSelectedSprint(currentSprintData.name);
       setSelectedSprintData(currentSprintData);
@@ -84,7 +85,7 @@ export default function Home() {
       return;
     }
 
-    const sprintData = sprints.find((s) => s.name === sprintName) || null;
+    const sprintData = sprints.find((s: Sprint) => s.name === sprintName) || null;
     setSelectedSprintData(sprintData);
 
     fetchIssues(sprintName, selectedStateIds, sorts);
@@ -129,9 +130,14 @@ export default function Home() {
 
   const error = boardError || issuesError;
 
+  // Get actual current sprint name from board
+  const actualCurrentSprintName = currentSprint
+    ? sprints.find((s: Sprint) => s.id === currentSprint.id)?.name || null
+    : null;
+
   // Calculate total story points
   const totalStoryPoints = useMemo(() => {
-    return issues.reduce((total, issue) => {
+    return issues.reduce((total: number, issue: Issue) => {
       const fields = issue.fields || [];
 
       // Get story point field based on issue type
@@ -179,6 +185,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 p-4 md:p-8">
+      <SessionTimeout />
       <SettingsModal
         forceOpen={showSettingsModal}
         onClose={handleCloseSettingsModal}
@@ -225,14 +232,14 @@ export default function Home() {
             </Card>
 
             <SprintMarkdownGenerator
-              currentSprintName={selectedSprint}
+              currentSprintName={actualCurrentSprintName}
               sprints={sprints}
               states={states}
               mode="current"
             />
 
             <SprintMarkdownGenerator
-              currentSprintName={selectedSprint}
+              currentSprintName={actualCurrentSprintName}
               sprints={sprints}
               states={states}
               mode="previous"

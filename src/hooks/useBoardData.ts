@@ -50,6 +50,7 @@ export function useBoardData() {
       store.setStates(boardData.states || [])
       store.setSubtribes(boardData.subtribes || [])
       store.setCurrentSprint(boardData.currentSprint || null)
+      store.updateLastUsed() // Track activity
 
       return boardData
     } catch (err) {

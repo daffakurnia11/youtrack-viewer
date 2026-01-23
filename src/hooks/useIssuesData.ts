@@ -55,6 +55,7 @@ export function useIssuesData() {
         })
 
         store.setIssues(response.data || [])
+        store.updateLastUsed() // Track activity
         return response.data || []
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error"

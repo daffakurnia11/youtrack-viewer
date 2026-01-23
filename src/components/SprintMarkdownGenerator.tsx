@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import { FileText, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -134,6 +134,15 @@ export function SprintMarkdownGenerator({
   const [showPreview, setShowPreview] = useState(false);
   const [markdownContent, setMarkdownContent] = useState("");
   const [previewSprintName, setPreviewSprintName] = useState("");
+
+  // Clear preview when sprint changes
+  useEffect(() => {
+    if (showPreview && previewSprintName !== currentSprintName) {
+      setShowPreview(false);
+      setMarkdownContent("");
+      setPreviewSprintName("");
+    }
+  }, [currentSprintName, showPreview, previewSprintName]);
 
   // Find target sprint based on mode
   const getTargetSprint = () => {

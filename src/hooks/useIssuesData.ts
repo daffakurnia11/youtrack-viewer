@@ -1,13 +1,14 @@
 import axios from "axios"
 import { useCallback } from "react"
 
-import { buildQuery, buildSortFilter, buildStateFilter, DEFAULT_ISSUE_FIELDS } from "@/lib/youTrackQuery"
+import { buildQuery, buildSortFilter, buildStateFilter, buildSubtribeFilter, DEFAULT_ISSUE_FIELDS } from "@/lib/youTrackQuery"
 import { useAppStore } from "@/store"
 import { SortOption } from "@/types"
 
 export function useIssuesData() {
   const {
     states,
+    subtribes,
     issues,
     loadingIssues,
     issuesError,
@@ -15,14 +16,21 @@ export function useIssuesData() {
     queryUsername,
     selectedSprint,
     selectedStateIds,
+    selectedSubtribeIds,
     sorts,
   } = useAppStore()
 
   const fetchIssues = useCallback(
-    async (sprintName?: string, stateIds?: string[], sortOptions?: SortOption[]) => {
+    async (
+      sprintName?: string,
+      stateIds?: string[],
+      subtribeIds?: string[],
+      sortOptions?: SortOption[]
+    ) => {
       const store = useAppStore.getState()
       const finalSprint = sprintName ?? selectedSprint
       const finalStateIds = stateIds ?? selectedStateIds
+      const finalSubtribeIds = subtribeIds ?? selectedSubtribeIds
       const finalSorts = sortOptions ?? sorts
 
       if (!finalSprint) {
@@ -44,8 +52,9 @@ export function useIssuesData() {
         const queryPrefix = queryUsername ? `#${queryUsername} {${BOARD_NAME}}:` : ""
 
         const stateFilter = buildStateFilter(states, finalStateIds)
+        const subtribeFilter = buildSubtribeFilter(subtribes, finalSubtribeIds)
         const sortFilter = buildSortFilter(finalSorts)
-        const query = buildQuery(finalSprint, stateFilter, sortFilter, queryPrefix)
+        const query = buildQuery(finalSprint, stateFilter, subtribeFilter, sortFilter, queryPrefix)
 
         const headers = { Authorization: `Bearer ${authToken}` }
 
@@ -72,7 +81,16 @@ export function useIssuesData() {
         store.setLoadingIssues(false)
       }
     },
-    [states, authToken, queryUsername, selectedSprint, selectedStateIds, sorts]
+    [
+      states,
+      subtribes,
+      authToken,
+      queryUsername,
+      selectedSprint,
+      selectedStateIds,
+      selectedSubtribeIds,
+      sorts,
+    ]
   )
 
   const clearIssues = useCallback(() => {

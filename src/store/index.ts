@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { createJSONStorage,persist } from "zustand/middleware"
 
-import { Issue, SortOption,Sprint, State } from "@/types"
+import { Issue, SortOption, Sprint, State, SubTribe } from "@/types"
 
 interface AppStore {
   // Auth & Settings
@@ -14,7 +14,7 @@ interface AppStore {
   // Board Data
   sprints: Sprint[]
   states: State[]
-  subtribes: State[]
+  subtribes: SubTribe[]
   currentSprint: { id: string } | null
 
   // Issues Data
@@ -24,6 +24,7 @@ interface AppStore {
   selectedSprint: string | null
   selectedSprintData: Sprint | null
   selectedStateIds: string[]
+  selectedSubtribeIds: string[]
   sorts: SortOption[]
 
   // UI State
@@ -60,6 +61,7 @@ interface AppStore {
   setSelectedSprint: (sprint: string | null) => void
   setSelectedSprintData: (sprint: Sprint | null) => void
   setSelectedStateIds: (stateIds: string[]) => void
+  setSelectedSubtribeIds: (subtribeIds: string[]) => void
   setSorts: (sorts: SortOption[]) => void
 
   // Actions - UI State
@@ -100,6 +102,7 @@ export const useAppStore = create<AppStore>()(
       selectedSprint: null,
       selectedSprintData: null,
       selectedStateIds: [],
+      selectedSubtribeIds: [],
       sorts: [],
 
       // Initial State - UI
@@ -163,7 +166,7 @@ export const useAppStore = create<AppStore>()(
       // Actions - Board Data
       setSprints: (sprints: Sprint[]) => set({ sprints }),
       setStates: (states: State[]) => set({ states }),
-      setSubtribes: (subtribes: State[]) => set({ subtribes }),
+      setSubtribes: (subtribes: SubTribe[]) => set({ subtribes }),
       setCurrentSprint: (sprint: { id: string } | null) => set({ currentSprint: sprint }),
 
       // Actions - Issues Data
@@ -174,6 +177,7 @@ export const useAppStore = create<AppStore>()(
       setSelectedSprint: (sprint: string | null) => set({ selectedSprint: sprint }),
       setSelectedSprintData: (sprint: Sprint | null) => set({ selectedSprintData: sprint }),
       setSelectedStateIds: (stateIds: string[]) => set({ selectedStateIds: stateIds }),
+      setSelectedSubtribeIds: (subtribeIds: string[]) => set({ selectedSubtribeIds: subtribeIds }),
       setSorts: (sorts: SortOption[]) => set({ sorts }),
 
       // Actions - UI State
@@ -192,6 +196,7 @@ export const useAppStore = create<AppStore>()(
         selectedSprint: null,
         selectedSprintData: null,
         selectedStateIds: [],
+        selectedSubtribeIds: [],
         sorts: [],
       }),
     }),

@@ -8,6 +8,7 @@ interface BoardStatsProps {
   issuesCount: number;
   totalStoryPoints: number;
   onRefresh: () => void;
+  onGenerateCustomFilter: () => void;
   onSettings: () => void;
   loading: boolean;
 }
@@ -17,6 +18,7 @@ export function BoardStats({
   issuesCount,
   totalStoryPoints,
   onRefresh,
+  onGenerateCustomFilter,
   onSettings,
   loading,
 }: BoardStatsProps) {
@@ -44,6 +46,14 @@ export function BoardStats({
           Filter
         </Button>
       </div>
+      <Button
+        onClick={onGenerateCustomFilter}
+        className="w-full cursor-pointer"
+        variant="outline"
+        disabled={!sprint}
+      >
+        Generate Custom Filter
+      </Button>
     </>
   );
 }

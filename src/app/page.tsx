@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { BoardFilters } from "@/components/BoardFilters";
 import { BoardHeader } from "@/components/BoardHeader";
@@ -11,7 +11,11 @@ import { LoadingState } from "@/components/LoadingState";
 import { QueryDisplay } from "@/components/QueryDisplay";
 import { SessionTimeout } from "@/components/SessionTimeout";
 import { SettingsModal } from "@/components/SettingsModal";
-import { SprintMarkdownGenerator } from "@/components/SprintMarkdownGenerator";
+import {
+  buildSprintMarkdownFromIssues,
+  MarkdownPreviewModal,
+  SprintMarkdownGenerator,
+} from "@/components/SprintMarkdownGenerator";
 import { SprintSelector } from "@/components/SprintSelector";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBoardData } from "@/hooks/useBoardData";
@@ -20,6 +24,7 @@ import {
   buildQuery,
   buildSortFilter,
   buildStateFilter,
+  buildSubtribeFilter,
 } from "@/lib/youTrackQuery";
 import { useAppStore } from "@/store";
 import { Issue, SortOption,Sprint } from "@/types";
@@ -37,9 +42,11 @@ export default function Home() {
   const {
     sprints,
     states,
+    subtribes,
     selectedSprint,
     selectedSprintData,
     selectedStateIds,
+    selectedSubtribeIds,
     sorts,
     issues,
     loadingBoard,
@@ -52,10 +59,14 @@ export default function Home() {
     setSelectedSprint,
     setSelectedSprintData,
     setSelectedStateIds,
+    setSelectedSubtribeIds,
     setSorts,
     setShowSettingsModal,
     setQueryUsername,
   } = useAppStore();
+
+  const [showCustomFilterPreview, setShowCustomFilterPreview] = useState(false);
+  const [customFilterMarkdown, setCustomFilterMarkdown] = useState("");
 
   useBoardData();
   const { fetchIssues } = useIssuesData();
@@ -88,14 +99,22 @@ export default function Home() {
     const sprintData = sprints.find((s: Sprint) => s.name === sprintName) || null;
     setSelectedSprintData(sprintData);
 
-    fetchIssues(sprintName, selectedStateIds, sorts);
+    fetchIssues(sprintName, selectedStateIds, selectedSubtribeIds, sorts);
   };
 
   const handleStateChange = (newStateIds: string[]) => {
     setSelectedStateIds(newStateIds);
 
     if (selectedSprint) {
-      fetchIssues(selectedSprint, newStateIds, sorts);
+      fetchIssues(selectedSprint, newStateIds, selectedSubtribeIds, sorts);
+    }
+  };
+
+  const handleSubtribeChange = (newSubtribeIds: string[]) => {
+    setSelectedSubtribeIds(newSubtribeIds);
+
+    if (selectedSprint) {
+      fetchIssues(selectedSprint, selectedStateIds, newSubtribeIds, sorts);
     }
   };
 
@@ -103,7 +122,7 @@ export default function Home() {
     setSorts(newSorts);
 
     if (selectedSprint) {
-      fetchIssues(selectedSprint, selectedStateIds, newSorts);
+      fetchIssues(selectedSprint, selectedStateIds, selectedSubtribeIds, newSorts);
     }
   };
 
@@ -113,11 +132,32 @@ export default function Home() {
       return;
     }
 
-    fetchIssues(selectedSprint, selectedStateIds, sorts);
+    fetchIssues(selectedSprint, selectedStateIds, selectedSubtribeIds, sorts);
   };
 
   const handleSettings = () => {
     setShowSettingsModal(true);
+  };
+
+  const handleGenerateCustomFilter = () => {
+    if (!selectedSprint) {
+      alert("Please select a sprint first");
+      return;
+    }
+
+    const markdown = buildSprintMarkdownFromIssues(
+      issues,
+      selectedSprint,
+      "current",
+    );
+
+    if (!markdown) {
+      alert("No tickets found for the selected filters");
+      return;
+    }
+
+    setCustomFilterMarkdown(markdown);
+    setShowCustomFilterPreview(true);
   };
 
   const handleCloseSettingsModal = () => {
@@ -177,11 +217,20 @@ export default function Home() {
     if (!selectedSprint) return "";
 
     const stateFilter = buildStateFilter(states, selectedStateIds);
+    const subtribeFilter = buildSubtribeFilter(subtribes, selectedSubtribeIds);
     const sortFilter = buildSortFilter(sorts);
     const queryPrefix = buildQueryPrefix(queryUsername);
 
-    return buildQuery(selectedSprint, stateFilter, sortFilter, queryPrefix);
-  }, [selectedSprint, states, selectedStateIds, sorts, queryUsername]);
+    return buildQuery(selectedSprint, stateFilter, subtribeFilter, sortFilter, queryPrefix);
+  }, [
+    selectedSprint,
+    states,
+    selectedStateIds,
+    subtribes,
+    selectedSubtribeIds,
+    sorts,
+    queryUsername,
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 p-4 md:p-8">
@@ -191,6 +240,12 @@ export default function Home() {
         onClose={handleCloseSettingsModal}
         currentUsername={queryUsername}
         onUsernameChange={handleUsernameChange}
+      />
+      <MarkdownPreviewModal
+        isOpen={showCustomFilterPreview}
+        onClose={() => setShowCustomFilterPreview(false)}
+        content={customFilterMarkdown}
+        sprintName={selectedSprint ?? "Custom Filter"}
       />
 
       <div className="max-w-7xl mx-auto">
@@ -214,8 +269,11 @@ export default function Home() {
 
                 <BoardFilters
                   states={states}
+                  subtribes={subtribes}
                   selectedStateIds={selectedStateIds}
+                  selectedSubtribeIds={selectedSubtribeIds}
                   onStateChange={handleStateChange}
+                  onSubtribeChange={handleSubtribeChange}
                   sorts={sorts}
                   onSortsChange={handleSortsChange}
                 />
@@ -225,6 +283,7 @@ export default function Home() {
                   issuesCount={issues.length}
                   totalStoryPoints={totalStoryPoints}
                   onRefresh={handleRefresh}
+                  onGenerateCustomFilter={handleGenerateCustomFilter}
                   onSettings={handleSettings}
                   loading={loadingIssues}
                 />

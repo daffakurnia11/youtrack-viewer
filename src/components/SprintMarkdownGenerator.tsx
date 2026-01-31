@@ -17,6 +17,8 @@ interface SprintMarkdownGeneratorProps {
   mode?: "current" | "previous";
 }
 
+type MarkdownMode = "current" | "previous";
+
 interface Ticket {
   id: string;
   summary: string;
@@ -32,16 +34,16 @@ interface MarkdownPreviewModalProps {
   sprintName: string;
 }
 
-interface YouTrackIssue {
+interface IssueLike {
   idReadable: string;
   summary: string;
-  fields: Array<{
+  fields?: Array<{
     value: unknown;
   }>;
   project?: {
     shortName: string;
   };
-  resolved?: string | null;
+  resolved?: string | number | null;
 }
 
 interface YouTrackField {
@@ -53,7 +55,120 @@ interface YouTrackField {
     | number;
 }
 
-function MarkdownPreviewModal({
+export function buildSprintMarkdownFromIssues(
+  issues: IssueLike[],
+  sprintName: string,
+  mode: MarkdownMode,
+): string {
+  const parseTicket = (issue: IssueLike): Ticket | null => {
+    const fields = issue.fields || [];
+    const summary = issue.summary || "";
+    const isAJTI = issue.idReadable?.startsWith("AJTI");
+
+    // Get story points
+    const storyPointField = fields[isAJTI ? 9 : 6] as YouTrackField | undefined;
+    const storyPoints =
+      typeof storyPointField?.value === "number"
+        ? storyPointField.value
+        : parseFloat(
+            storyPointField?.value?.presentation ||
+              storyPointField?.value?.name ||
+              "0",
+          );
+
+    // Get SubTribe
+    const subTribeField = fields[isAJTI ? 11 : 12] as YouTrackField | undefined;
+    const subTribeName =
+      typeof subTribeField?.value === "object" && subTribeField?.value?.name
+        ? subTribeField.value.name
+        : "Issues";
+
+    // Check if it's deployed (has resolved date)
+    const deployed = !!issue.resolved;
+
+    return {
+      id: issue.idReadable,
+      summary,
+      storyPoints,
+      subTribe: subTribeName,
+      deployed,
+    };
+  };
+
+  const tickets = issues
+    .map(parseTicket)
+    .filter((t: Ticket | null): t is Ticket => t !== null);
+
+  if (tickets.length === 0) {
+    return "";
+  }
+
+  // Group by subtribe
+  const grouped: Record<string, Ticket[]> = {};
+  tickets.forEach((ticket: Ticket) => {
+    const key = ticket.subTribe;
+    if (!grouped[key]) {
+      grouped[key] = [];
+    }
+    grouped[key].push(ticket);
+  });
+
+  // Sort by SubTribe, then by issue ID
+  Object.keys(grouped).forEach((key) => {
+    grouped[key].sort((a, b) => {
+      if (a.subTribe !== b.subTribe) return a.subTribe.localeCompare(b.subTribe);
+      return a.id.localeCompare(b.id);
+    });
+  });
+
+  // Build markdown
+  let markdown = `# ${sprintName}\n\n`;
+
+  const totalIssues = tickets.length;
+  if (mode === "previous") {
+    // Show totals for previous sprint
+    const totalStoryPoints = tickets.reduce(
+      (sum: number, ticket: Ticket) => sum + ticket.storyPoints,
+      0,
+    );
+    markdown += `**Total Issues:** ${totalIssues} | **Total Story Points:** ${totalStoryPoints}\n\n---\n\n`;
+  } else {
+    markdown += `**Total Issues:** ${totalIssues}\n\n---\n\n`;
+  }
+
+  // Add subtribes
+  Object.entries(grouped).forEach(([subTribe, tickets]) => {
+    markdown += `## ${subTribe}\n\n`;
+
+    if (mode === "previous") {
+      if (tickets.length === 0) {
+        markdown += `_No ticket deployed_\n\n`;
+        markdown += "---\n\n";
+        return;
+      }
+    }
+
+    markdown += "\n\n";
+
+    // Add tickets
+    tickets.forEach((ticket) => {
+      if (mode === "previous") {
+        const deployed = ticket.deployed;
+        const deployedMark = deployed ? ` **DEPLOYED**` : "";
+        markdown += `- ${ticket.id} ${ticket.summary} (${ticket.storyPoints}SP) ${deployedMark}\n`;
+      } else {
+        // Current sprint - no story points or deployed status
+        markdown += `- ${ticket.id} ${ticket.summary}\n`;
+      }
+    });
+
+    markdown += "---\n";
+  });
+
+  return markdown;
+}
+
+export function MarkdownPreviewModal({
   isOpen,
   onClose,
   content,
@@ -135,15 +250,6 @@ export function SprintMarkdownGenerator({
   const [markdownContent, setMarkdownContent] = useState("");
   const [previewSprintName, setPreviewSprintName] = useState("");
 
-  // Clear preview when sprint changes
-  useEffect(() => {
-    if (showPreview && previewSprintName !== currentSprintName) {
-      setShowPreview(false);
-      setMarkdownContent("");
-      setPreviewSprintName("");
-    }
-  }, [currentSprintName, showPreview, previewSprintName]);
-
   // Find target sprint based on mode
   const getTargetSprint = () => {
     if (!currentSprintName) return null;
@@ -161,6 +267,18 @@ export function SprintMarkdownGenerator({
       return sprints[currentSprintIndex] || null;
     }
   };
+
+  const targetSprint = getTargetSprint();
+  const targetSprintName = targetSprint?.name ?? "";
+
+  // Clear preview when target sprint changes
+  useEffect(() => {
+    if (showPreview && previewSprintName !== targetSprintName) {
+      setShowPreview(false);
+      setMarkdownContent("");
+      setPreviewSprintName("");
+    }
+  }, [showPreview, previewSprintName, targetSprintName]);
 
   // Fetch issues for the sprint
   const fetchSprintIssues = async (sprintName: string) => {
@@ -203,42 +321,6 @@ export function SprintMarkdownGenerator({
     return response.data || [];
   };
 
-  // Parse issue into ticket format
-  const parseTicket = (issue: YouTrackIssue): Ticket | null => {
-    const fields = issue.fields || [];
-    const summary = issue.summary || "";
-    const isAJTI = issue.idReadable?.startsWith("AJTI");
-
-    // Get story points
-    const storyPointField = fields[isAJTI ? 9 : 6] as YouTrackField | undefined;
-    const storyPoints =
-      typeof storyPointField?.value === "number"
-        ? storyPointField.value
-        : parseFloat(
-            storyPointField?.value?.presentation ||
-              storyPointField?.value?.name ||
-              "0",
-          );
-
-    // Get SubTribe
-    const subTribeField = fields[isAJTI ? 11 : 12] as YouTrackField | undefined;
-    const subTribeName =
-      typeof subTribeField?.value === "object" && subTribeField?.value?.name
-        ? subTribeField.value.name
-        : "Issues";
-
-    // Check if it's deployed (has resolved date)
-    const deployed = !!issue.resolved;
-
-    return {
-      id: issue.idReadable,
-      summary,
-      storyPoints,
-      subTribe: subTribeName,
-      deployed,
-    };
-  };
-
   // Generate markdown
   const handleGenerate = async () => {
     const targetSprint = getTargetSprint();
@@ -257,79 +339,17 @@ export function SprintMarkdownGenerator({
       // Fetch issues for the sprint
       const issues = await fetchSprintIssues(targetSprint.name);
 
-      // Parse tickets
-      const tickets = issues
-        .map(parseTicket)
-        .filter((t: Ticket | null): t is Ticket => t !== null);
+      const markdown = buildSprintMarkdownFromIssues(
+        issues,
+        targetSprint.name,
+        mode,
+      );
 
-      if (tickets.length === 0) {
+      if (!markdown) {
         alert("No tickets found in sprint");
         setIsGenerating(false);
         return;
       }
-
-      // Group by subtribe
-      const grouped: Record<string, Ticket[]> = {};
-      tickets.forEach((ticket: Ticket) => {
-        const key = ticket.subTribe;
-        if (!grouped[key]) {
-          grouped[key] = [];
-        }
-        grouped[key].push(ticket);
-      });
-
-      // Sort by SubTribe, then by issue ID
-      Object.keys(grouped).forEach((key) => {
-        grouped[key].sort((a, b) => {
-          if (a.subTribe !== b.subTribe)
-            return a.subTribe.localeCompare(b.subTribe);
-          return a.id.localeCompare(b.id);
-        });
-      });
-
-      // Build markdown
-      let markdown = `# ${targetSprint.name}\n\n`;
-
-      const totalIssues = tickets.length;
-      if (mode === "previous") {
-        // Show totals for previous sprint
-        const totalStoryPoints = tickets.reduce(
-          (sum: number, ticket: Ticket) => sum + ticket.storyPoints,
-          0,
-        );
-        markdown += `**Total Issues:** ${totalIssues} | **Total Story Points:** ${totalStoryPoints}\n\n---\n\n`;
-      } else {
-        markdown += `**Total Issues:** ${totalIssues}\n\n---\n\n`;
-      }
-
-      // Add subtribes
-      Object.entries(grouped).forEach(([subTribe, tickets]) => {
-        markdown += `## ${subTribe}\n\n`;
-
-        if (mode === "previous") {
-          if (tickets.length === 0) {
-            markdown += `_No ticket deployed_\n\n`;
-            markdown += "---\n\n";
-            return;
-          }
-        }
-
-        markdown += "\n\n";
-
-        // Add tickets
-        tickets.forEach((ticket) => {
-          if (mode === "previous") {
-            const deployed = ticket.deployed;
-            const deployedMark = deployed ? ` **DEPLOYED**` : "";
-            markdown += `- ${ticket.id} ${ticket.summary} (${ticket.storyPoints}SP) ${deployedMark}\n`;
-          } else {
-            // Current sprint - no story points or deployed status
-            markdown += `- ${ticket.id} ${ticket.summary}\n`;
-          }
-        });
-
-        markdown += "---\n";
-      });
 
       setMarkdownContent(markdown);
       setPreviewSprintName(targetSprint.name);
@@ -343,8 +363,6 @@ export function SprintMarkdownGenerator({
       setIsGenerating(false);
     }
   };
-
-  const targetSprint = getTargetSprint();
 
   return (
     <>

@@ -50,7 +50,7 @@ interface AppStore {
   // Actions - Board Data
   setSprints: (sprints: Sprint[]) => void
   setStates: (states: State[]) => void
-  setSubtribes: (subtribes: State[]) => void
+  setSubtribes: (subtribes: SubTribe[]) => void
   setCurrentSprint: (sprint: { id: string } | null) => void
 
   // Actions - Issues Data
